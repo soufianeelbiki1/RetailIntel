@@ -52,29 +52,38 @@ def test_inventory_mart_surfaces_actionable_low_stock() -> None:
     connection = build_warehouse()
 
     assert scalar(connection, "select count(*) from mart_inventory_action") == 20
-    assert scalar(
-        connection,
-        "select count(*) from mart_inventory_action "
-        "where inventory_action in ('reorder', 'stockout')",
-    ) > 0
-    assert scalar(
-        connection,
-        "select count(*) from mart_inventory_action where reorder_gap_qty < 0",
-    ) == 0
+    assert (
+        scalar(
+            connection,
+            "select count(*) from mart_inventory_action "
+            "where inventory_action in ('reorder', 'stockout')",
+        )
+        > 0
+    )
+    assert (
+        scalar(
+            connection,
+            "select count(*) from mart_inventory_action where reorder_gap_qty < 0",
+        )
+        == 0
+    )
 
 
 def test_supplier_reliability_rates_are_bounded() -> None:
     connection = build_warehouse()
 
     assert scalar(connection, "select count(*) from mart_supplier_reliability") == 4
-    assert scalar(
-        connection,
-        """
+    assert (
+        scalar(
+            connection,
+            """
         select count(*)
         from mart_supplier_reliability
         where on_time_delivery_rate < 0 or on_time_delivery_rate > 1
         """,
-    ) == 0
+        )
+        == 0
+    )
 
 
 def test_return_quantity_constraint_fails_closed() -> None:

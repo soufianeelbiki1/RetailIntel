@@ -54,7 +54,8 @@ def test_inventory_mart_surfaces_actionable_low_stock() -> None:
     assert scalar(connection, "select count(*) from mart_inventory_action") == 20
     assert scalar(
         connection,
-        "select count(*) from mart_inventory_action where inventory_action in ('reorder', 'stockout')",
+        "select count(*) from mart_inventory_action "
+        "where inventory_action in ('reorder', 'stockout')",
     ) > 0
     assert scalar(
         connection,

@@ -6,7 +6,9 @@ from retailintel import build_warehouse
 def test_rfm_has_one_row_per_customer_and_bounded_scores() -> None:
     connection = build_warehouse()
 
-    customers = connection.execute("select count(distinct customer_id) from fact_order").fetchone()[0]
+    customers = connection.execute(
+        "select count(distinct customer_id) from fact_order"
+    ).fetchone()[0]
     rfm_rows = connection.execute("select count(*) from mart_customer_rfm").fetchone()[0]
     invalid_scores = connection.execute(
         """

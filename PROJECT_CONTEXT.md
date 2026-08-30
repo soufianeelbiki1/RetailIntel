@@ -1,6 +1,6 @@
 # RetailIntel operating brief
 
-RetailIntel is the commercial analytics and retail decision-intelligence flagship. It should answer inventory, merchandising, margin, return, and supplier questions rather than function as a decorative sales dashboard.
+RetailIntel is the commercial analytics and retail decision-intelligence flagship. It should answer inventory, merchandising, margin, return, customer, and supplier questions rather than function as a decorative sales dashboard.
 
 ## Guardrails
 
@@ -10,9 +10,11 @@ RetailIntel is the commercial analytics and retail decision-intelligence flagshi
 - Returns must never exceed ordered quantity.
 - Supplier reliability must be measured from actual vs expected receipt dates.
 - Reorder recommendations must expose their assumptions and must not pretend to be optimized until demand uncertainty and service-level targets are modeled.
+- RFM scores are relative to the observed analysis population and are not universal customer labels.
+- Promotion comparisons are descriptive unless assignment is randomized or a defensible causal identification strategy is documented.
 - All monetary values use integer minor units in the warehouse.
 
-## Current slice
+## Current state
 
 - DuckDB analytical warehouse with supplier/product dimensions.
 - Order, order-line, daily inventory-snapshot, and purchase-order facts.
@@ -20,8 +22,12 @@ RetailIntel is the commercial analytics and retail decision-intelligence flagshi
 - Product-day mart for gross sales, net sales after returns, COGS, gross margin, margin rate, and order counts.
 - Latest-SKU inventory action mart with stockout/reorder/watch/healthy state and reorder gap.
 - Supplier reliability mart with actual lead time, on-time delivery rate, and late-day measures.
-- Regression tests for margin identities, bounded supplier rates, actionable low stock, fact grains, and return constraints.
+- Customer RFM mart with recency/frequency/monetary quintiles and explicit customer segments.
+- Monthly acquisition cohort mart with cohort age, active customers, retention, sales, orders, and margin.
+- Promotion/category profitability mart with orders, units, returns, net sales, COGS, margin, realized unit price, and no causal `lift` claim.
+- Documentation explains RFM population dependence, observed-retention semantics, history-boundary risk, and why promotion comparisons are descriptive rather than causal.
+- Regression tests reconcile customer/promotion marts to atomic facts and enforce bounded scores, retention, margin, and non-causal naming.
 
 ## Next highest-value slice
 
-Add customer/RFM and cohort marts, promotion-margin decomposition, demand history at day × SKU grain, rolling demand volatility, service-level assumptions, safety-stock/reorder quantity recommendations, and time-based forecast validation. Then build a decision dashboard that prioritizes high-margin stockout risk and low-reliability suppliers rather than ranking products by sales alone.
+Add day × SKU demand history, rolling demand volatility, explicit service-level assumptions, safety-stock/reorder quantity recommendations, and time-based forecast validation. Then build a decision dashboard that combines gross margin, stockout risk, supplier reliability, and replenishment uncertainty instead of ranking products by sales alone.

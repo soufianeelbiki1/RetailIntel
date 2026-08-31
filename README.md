@@ -1,48 +1,47 @@
 # RetailIntel
 
-Retail and marketplace decision intelligence for inventory, margin, merchandising, and supplier decisions.
+RetailIntel is a DuckDB retail analytics project focused on inventory, margin, customer behavior, supplier reliability and replenishment decisions.
 
-RetailIntel is designed as a Data Analyst / Analytics Engineer portfolio project, not a generic sales dashboard. It models commercial facts at explicit grains and turns them into stockout, margin, return, supplier, customer, promotion, and replenishment decisions.
+The warehouse keeps commercial facts at separate grains so revenue, stock and supplier metrics are not accidentally multiplied through joins.
 
-## What is implemented
+## Warehouse model
 
-- DuckDB analytical warehouse.
-- Reproducible synthetic retail operations with no real customer or retailer data.
-- Product and supplier dimensions.
-- Order, order-line, daily inventory-snapshot, and purchase-order facts.
-- Product-day mart for gross sales, net sales after returns, COGS, gross margin, margin rate, units, and orders.
-- Customer RFM segmentation and monthly acquisition-cohort retention marts.
-- Descriptive promotion/category margin analysis with no unsupported causal lift claim.
-- Supplier reliability mart with actual lead time, on-time delivery rate, average late days, and ordered units.
-- Dense SKU × calendar-day demand history that preserves zero-demand days.
-- Seven-day trailing-mean demand forecast using prior days only, with explicit forecast error.
-- Twenty-eight-day demand-volatility estimate for replenishment uncertainty.
-- Replenishment recommendations with an explicit 95% service-level assumption (`z = 1.645`), safety stock, reorder point, inventory position, and reorder quantity.
-- Latest-SKU inventory action states with `healthy`, `watch`, `reorder`, and `stockout` decisions.
-- Database constraints for return quantities, positive prices/costs, and purchase-order dates.
-- Regression tests for grains, margin identities, cohort/RFM bounds, forecast chronology, service-level assumptions, and replenishment arithmetic.
-- Python 3.11/3.12 CI with Ruff and pytest.
+- product and supplier dimensions;
+- order and order-line facts;
+- daily inventory snapshots;
+- purchase-order facts.
 
-## Why the grains matter
+Current marts include product-day profitability, supplier reliability, customer RFM, acquisition cohorts, promotion/category economics, dense SKU-day demand history and replenishment recommendations.
 
-Revenue and margin come from `fact_order_line`; inventory state comes from daily SKU snapshots; supplier reliability comes from purchase orders. Those facts are deliberately not flattened together, avoiding revenue multiplication and misleading stock or lead-time metrics.
+## Demand and replenishment
 
-Demand is evaluated on a dense SKU-day spine rather than only on days where a sale occurred. This prevents a common upward bias in average-demand and volatility estimates caused by silently dropping zero-demand days.
+The demand model builds a complete SKU × calendar-day spine, including zero-demand days. Forecasts use a seven-day trailing mean based only on prior observations, and the warehouse also calculates a 28-day demand-volatility estimate.
 
-## Forecast and replenishment boundary
+The current replenishment policy uses a fixed 95% service target (`z = 1.645`) and calculates:
 
-The current forecast is an interpretable trailing-mean baseline, not a claim of optimized machine learning. Its value is that it creates a time-safe benchmark for later models: every forecast uses only observations before the forecast date.
+- safety stock;
+- reorder point;
+- inventory position (`on_hand + on_order`);
+- recommended reorder quantity;
+- action state: `healthy`, `watch`, `reorder` or `stockout`.
 
-The replenishment policy assumes independent daily demand, supplier lead time from the warehouse dimension, and a fixed 95% service target. The recommended safety stock uses `1.645 × demand_stddev × sqrt(lead_time_days)`. These are transparent planning assumptions, not proof of globally optimal inventory levels.
+These are transparent planning formulas, not a claim of globally optimal inventory.
 
-## Run locally
+## Customer and commercial analysis
 
-```bash
-python -m pip install -e '.[dev]'
-ruff check .
-ruff format --check .
-pytest -q
-```
+- RFM scoring and customer segments;
+- monthly acquisition cohorts and observed retention;
+- product/category gross margin and returns;
+- supplier on-time delivery and lead-time measures;
+- promotion/category comparisons.
+
+Promotion analysis is descriptive. The data does not support a causal lift claim.
+
+## Synthetic data
+
+The repository generates its own retail operations for repeatable tests. It contains no real customer, retailer or supplier records.
+
+## Example
 
 ```python
 from retailintel import build_warehouse
@@ -57,16 +56,23 @@ recommendations = connection.execute(
 ).fetchall()
 ```
 
-## Data truthfulness
+## Run and test
 
-All current observations are **synthetic and generated by this repository**. No real customer, retailer, supplier, order volume, margin, demand forecast, or production inventory claim is made.
+```bash
+python -m pip install -e '.[dev]'
+ruff check .
+ruff format --check .
+pytest -q
+```
 
-See `docs/data_dictionary.md` for grains and metric definitions and `PROJECT_CONTEXT.md` for the roadmap.
+CI runs on Python 3.11 and 3.12.
 
-## Next
+`docs/data_dictionary.md` documents warehouse grains and metric definitions.
 
-- Time-based holdout summary with WAPE/MAE by SKU and category.
-- Compare trailing mean against seasonal-naive and other transparent baselines.
-- Supplier lead-time variability in safety-stock scenarios.
-- Scenario analysis across service levels and order quantities.
-- Decision dashboard prioritizing gross margin, stockout risk, supplier reliability, and replenishment uncertainty together.
+## Roadmap
+
+- compare the trailing mean with seasonal-naive and other transparent baselines;
+- report WAPE/MAE by SKU and category on time-based holdouts;
+- model supplier lead-time variability in replenishment scenarios;
+- compare service-level and order-quantity scenarios;
+- add an interactive inventory and merchandising dashboard backed by the warehouse.

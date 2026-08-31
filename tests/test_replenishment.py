@@ -58,7 +58,14 @@ def test_replenishment_policy_exposes_service_level_assumption() -> None:
     ).fetchall()
 
     assert rows
-    for service_level, z_score, safety_stock, reorder_point, reorder_qty, inventory_position in rows:
+    for (
+        service_level,
+        z_score,
+        safety_stock,
+        reorder_point,
+        reorder_qty,
+        inventory_position,
+    ) in rows:
         assert service_level == 0.95
         assert z_score == 1.645
         assert safety_stock >= 0

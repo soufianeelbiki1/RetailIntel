@@ -13,6 +13,25 @@ The warehouse keeps commercial facts at separate grains so revenue, stock and su
 
 Current marts include product-day profitability, supplier reliability, customer RFM, acquisition cohorts, promotion/category economics, dense SKU-day demand history and replenishment recommendations.
 
+## Inventory dashboard
+
+Generate a standalone browser dashboard from the DuckDB warehouse:
+
+```bash
+python -m retailintel.dashboard --output build/retailintel-dashboard.html
+```
+
+The dashboard combines:
+
+- stockout, reorder, watch and healthy action counts;
+- total recommended reorder quantity;
+- SKU-level mean demand and 28-day demand volatility;
+- safety stock and reorder points;
+- supplier contracted/actual lead time and on-time delivery rate;
+- an ordered replenishment queue.
+
+The generated HTML includes its own CSS and requires no dashboard server. All displayed values come from the reproducible synthetic warehouse. Reorder recommendations remain planning outputs under the documented service-level assumptions, not claims of optimal inventory.
+
 ## Demand and replenishment
 
 The demand model builds a complete SKU × calendar-day spine, including zero-demand days. Forecasts use a seven-day trailing mean based only on prior observations, and the warehouse also calculates a 28-day demand-volatility estimate.
@@ -63,6 +82,7 @@ python -m pip install -e '.[dev]'
 ruff check .
 ruff format --check .
 pytest -q
+python -m retailintel.dashboard --output build/retailintel-dashboard.html
 ```
 
 CI runs on Python 3.11 and 3.12.
@@ -75,4 +95,4 @@ CI runs on Python 3.11 and 3.12.
 - report WAPE/MAE by SKU and category on time-based holdouts;
 - model supplier lead-time variability in replenishment scenarios;
 - compare service-level and order-quantity scenarios;
-- add an interactive inventory and merchandising dashboard backed by the warehouse.
+- add dashboard scenario controls once the validation metrics are in place.

@@ -41,4 +41,7 @@ def build_warehouse(
     _execute_script(connection, SQL_DIR / "marts" / "product_daily.sql")
     _execute_script(connection, SQL_DIR / "marts" / "inventory_action.sql")
     _execute_script(connection, SQL_DIR / "marts" / "supplier_reliability.sql")
+    _execute_script(connection, SQL_DIR / "marts" / "customer_rfm.sql")
+    _execute_script(connection, SQL_DIR / "marts" / "customer_cohort.sql")
+    _execute_script(connection, SQL_DIR / "marts" / "promotion_margin.sql")
     return connection

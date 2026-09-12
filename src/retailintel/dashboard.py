@@ -61,6 +61,9 @@ th { color: #707a89; font-weight: 600; }
 .action-reorder { background: #ffedd5; }
 .action-watch { background: #fef3c7; }
 .action-healthy { background: #dcfce7; }
+.table-scroll { overflow-x: auto; }
+.table-scroll:focus-visible { outline: 3px solid #334155; outline-offset: 3px; }
+.evidence-note { color: #334155; line-height: 1.6; max-width: 900px; }
 @media (max-width: 850px) {
   .cards { grid-template-columns: 1fr 1fr; }
   .grid { grid-template-columns: 1fr; }
@@ -195,6 +198,36 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
         for name, contracted, actual, on_time, late, orders in supplier_rows
     )
 
+    evaluation_rows = connection.execute(
+        "select category, baseline, holdout_start, holdout_end, evaluated_sku_days, "
+        "mae_units, wape, mean_error_units from mart_forecast_evaluation "
+        "where evaluation_grain = 'category' order by category, baseline"
+    ).fetchall()
+    evaluation_html = "".join(
+        "<tr>"
+        f'<th scope="row">{escape(str(category))}</th>'
+        f"<td>{'Trailing mean' if baseline == 'trailing_mean_7d' else 'Seasonal naive'}</td>"
+        f"<td>{start.isoformat()} – {end.isoformat()}</td>"
+        f"<td>{int(samples):,}</td>"
+        f"<td>{float(mae):.2f}</td>"
+        f"<td>{'Undefined (zero demand)' if wape is None else f'{float(wape) * 100:.2f}%'}</td>"
+        f"<td>{float(bias):+.2f}</td></tr>"
+        for category, baseline, start, end, samples, mae, wape, bias in evaluation_rows
+    )
+    evaluation_content = (
+        '<div class="table-scroll" tabindex="0" role="region" '
+        'aria-label="Forecast comparison, horizontally scrollable">'
+        "<table><caption>Final-seven-day category comparison on matching SKU-days</caption>"
+        '<thead><tr><th scope="col">Category</th><th scope="col">Baseline</th>'
+        '<th scope="col">Scored dates</th><th scope="col">SKU-days</th>'
+        '<th scope="col">MAE units</th><th scope="col">WAPE</th>'
+        '<th scope="col">Mean error units</th></tr></thead>'
+        f"<tbody>{evaluation_html}</tbody></table></div>"
+        if evaluation_rows
+        else "<p>No eligible observations: at least seven prior days are required. "
+        "No accuracy score is inferred.</p>"
+    )
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -245,6 +278,20 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
   <p class="note">
     Reorder quantities are planning outputs from the current baseline policy, not proof of
     globally optimal inventory. Forecasts use prior observations only.
+  </p>
+</section>
+<section class="panel full" aria-labelledby="forecast-heading">
+  <h2 id="forecast-heading">How uncertain is the demand estimate?</h2>
+  <p class="evidence-note">
+    Synthetic forecast evidence, not achieved inventory savings. Lower error is better;
+    WAPE can exceed 100% and is not an accuracy percentage. Category scores pool SKU-day
+    errors, not aggregated category forecasts. Negative mean error means underprediction.
+  </p>
+  {evaluation_content}
+  <p class="evidence-note">
+    Walk-forward one-day predictions use prior observations; this is not a fixed-origin
+    seven-day forecast. One short synthetic window does not justify selecting a real
+    replenishment policy. Review individual SKU evidence before approving orders.
   </p>
 </section>
 </main>

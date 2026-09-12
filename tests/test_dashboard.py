@@ -29,6 +29,48 @@ def test_dashboard_uses_replenishment_and_supplier_marts() -> None:
     assert "Supplier reliability" in html
     assert "95% service-level" in html
     assert "not proof of" in html
+    assert "How uncertain is the demand estimate?" in html
+    assert "Seasonal naive" in html
+    assert "Trailing mean" in html
+    assert "SKU-days" in html
+    assert "WAPE can exceed 100%" in html
+    assert 'tabindex="0" role="region"' in html
+    assert 'scope="col"' in html
+
+
+def test_dashboard_does_not_invent_accuracy_when_evaluation_is_empty() -> None:
+    connection = build_warehouse()
+    try:
+        connection.execute(
+            "create table evaluation_fixture as select * from mart_forecast_evaluation where false"
+        )
+        connection.execute(
+            "create or replace view mart_forecast_evaluation as select * from evaluation_fixture"
+        )
+        html = build_dashboard_html(connection)
+    finally:
+        connection.close()
+    assert "No eligible observations" in html
+    assert "No accuracy score is inferred" in html
+
+
+def test_dashboard_preserves_undefined_wape_and_escapes_categories() -> None:
+    connection = build_warehouse()
+    try:
+        connection.execute(
+            "create table evaluation_fixture as "
+            "select * replace (NULL::double as wape, '<test>' as category) "
+            "from mart_forecast_evaluation"
+        )
+        connection.execute(
+            "create or replace view mart_forecast_evaluation as select * from evaluation_fixture"
+        )
+        html = build_dashboard_html(connection)
+    finally:
+        connection.close()
+    assert "Undefined (zero demand)" in html
+    assert "&lt;test&gt;" in html
+    assert "<test>" not in html
 
 
 def test_dashboard_writer_creates_standalone_html(tmp_path: Path) -> None:

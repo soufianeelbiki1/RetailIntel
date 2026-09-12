@@ -29,8 +29,15 @@ The dashboard combines:
 - safety stock and reorder points;
 - supplier contracted/actual lead time and on-time delivery rate;
 - an ordered replenishment queue.
+- a category forecast comparison with matched scoring dates, sample counts,
+  MAE, WAPE and signed error, including undefined/insufficient-history states.
 
 The generated HTML includes its own CSS and requires no dashboard server. All displayed values come from the reproducible synthetic warehouse. Reorder recommendations remain planning outputs under the documented service-level assumptions, not claims of optimal inventory.
+
+The comparison is read-only evidence, not automatic model selection. Its table
+has scoped headers and a keyboard-focusable horizontal scroll region. Desktop
+and mobile browser verification of this addition is pending; HTML tests alone
+do not establish visual or accessibility correctness.
 
 ## Demand and replenishment
 

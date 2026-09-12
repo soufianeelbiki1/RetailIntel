@@ -26,8 +26,8 @@ python -m retailintel.evaluation --output build/forecast-evaluation.json
 python -m retailintel.dashboard --output build/retailintel-dashboard.html
 ```
 
-On Windows activate with `.venv\Scripts\Activate.ps1`. Run from the repository
-root; the SQL scripts are currently repository-backed, not packaged wheel data.
+On Windows activate with `.venv\Scripts\Activate.ps1`. The SQL scripts ship as
+package resources, so an installed wheel can run outside the repository too.
 Open the generated HTML locally. Both default commands use seed `20260831`,
 600 orders and 20 products. The JSON records the DuckDB version and scoring
 protocol; file generation does not publish anything or change replenishment policy.
@@ -81,7 +81,7 @@ See [metric semantics](forecast_evaluation.md) for eligibility and availability 
   avoid using a target to predict itself.
 - Separate fact grains prevent stock and revenue multiplication through joins.
 - Comparable baseline populations and pooled category errors are implemented in
-  `sql/marts/forecast_evaluation.sql`, not hand-entered dashboard numbers.
+  `src/retailintel/sql/marts/forecast_evaluation.sql`, not hand-entered dashboard numbers.
 - Tests cover known errors, undefined WAPE, insufficient history, shared
   observations, future perturbation and deterministic JSON export. CI runs the
   suite on two Python versions.

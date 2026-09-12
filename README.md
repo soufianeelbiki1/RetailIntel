@@ -118,6 +118,11 @@ python -m retailintel.dashboard --output build/retailintel-dashboard.html
 
 CI runs on Python 3.11 and 3.12.
 
+SQL lives in `src/retailintel/sql` and ships as package data. The wheel-install
+regression builds and installs the wheel into a temporary directory, then runs
+the report and dashboard outside the checkout. Editable-install success alone
+does not establish distributable-package correctness.
+
 `docs/data_dictionary.md` documents warehouse grains and metric definitions.
 
 ## Roadmap

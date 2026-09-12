@@ -58,6 +58,17 @@ Promotion analysis is descriptive. The data does not support a causal lift claim
 
 ## Forecast evaluation
 
+Export a self-describing JSON report without a database server or model API:
+
+```bash
+python -m retailintel.evaluation --output build/forecast-evaluation.json
+```
+
+The report records the synthetic seed, input size, DuckDB version, scoring
+protocol, metrics and limitations alongside the scores. See the
+[business decision walkthrough](docs/DECISION_WALKTHROUGH.md) to reproduce and
+interpret the evidence rather than treating a forecast as an inventory guarantee.
+
 `mart_forecast_evaluation` compares the seven-day trailing mean with a seven-day
 seasonal-naive baseline on the same eligible SKU-days in the final seven calendar
 days. It reports MAE, WAPE, signed mean error, observed demand and evaluated

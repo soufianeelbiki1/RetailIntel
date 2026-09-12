@@ -56,6 +56,26 @@ These are transparent planning formulas, not a claim of globally optimal invento
 
 Promotion analysis is descriptive. The data does not support a causal lift claim.
 
+## Forecast evaluation
+
+`mart_forecast_evaluation` compares the seven-day trailing mean with a seven-day
+seasonal-naive baseline on the same eligible SKU-days in the final seven calendar
+days. It reports MAE, WAPE, signed mean error, observed demand and evaluated
+sample counts by SKU and category. Category errors are pooled across SKU-days;
+WAPE is undefined when observed demand is zero.
+
+```sql
+select category, baseline, evaluated_sku_days, mae_units, wape, mean_error_units
+from mart_forecast_evaluation
+where evaluation_grain = 'category'
+order by category, baseline;
+```
+
+This is walk-forward one-day evaluation: each prediction can use earlier observed
+holdout days, never its own target or later demand. It is not a fixed-origin
+seven-day forecast or evidence of real retailer accuracy. The reproducible
+synthetic sample is intentionally limited. See [evaluation semantics](docs/forecast_evaluation.md).
+
 ## Synthetic data
 
 The repository generates its own retail operations for repeatable tests. It contains no real customer, retailer or supplier records.
@@ -91,8 +111,8 @@ CI runs on Python 3.11 and 3.12.
 
 ## Roadmap
 
-- compare the trailing mean with seasonal-naive and other transparent baselines;
-- report WAPE/MAE by SKU and category on time-based holdouts;
+- test longer histories and multiple holdout windows before selecting a forecasting policy;
+- add more transparent baselines without hiding cold-start or zero-demand cases;
 - model supplier lead-time variability in replenishment scenarios;
 - compare service-level and order-quantity scenarios;
 - add dashboard scenario controls once the validation metrics are in place.

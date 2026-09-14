@@ -46,6 +46,8 @@ def build_evaluation_report(seed: int = 20260831, order_count: int = 600) -> dic
             "protocol": {
                 "target": "final recorded net units per SKU/calendar day",
                 "method": "walk-forward one-day; prior observations only",
+                "policy_baseline": "prior seven-day mean used by replenishment",
+                "comparator": "demand observed exactly seven calendar days earlier",
                 "window": "final seven calendar days; complete prior seven days required",
                 "category_aggregation": "pooled SKU-day errors, not category forecasts",
                 "zero_demand_wape": None,

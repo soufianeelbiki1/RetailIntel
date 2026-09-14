@@ -15,6 +15,7 @@ def test_report_is_deterministic_and_self_describing() -> None:
     assert first["source"]["seed"] == 42
     assert first["source"]["order_count"] == 30
     assert first["history"]["sku_days"] == 600
+    assert first["protocol"]["policy_baseline"] == ("prior seven-day mean used by replenishment")
     assert len(first["evaluation"]) == 48  # 20 SKUs + 4 categories, two baselines
     assert first["limitations"]
     assert all(row["evaluated_sku_days"] > 0 for row in first["evaluation"])

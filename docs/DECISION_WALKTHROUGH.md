@@ -3,9 +3,10 @@
 ## The decision
 
 A planner needs to choose which SKUs to investigate for replenishment, while
-understanding how uncertain the demand estimate is. RetailIntel separates the
-operational queue from forecast evidence: a reorder calculation is not proof
-that a forecast is accurate or a purchase order should be placed automatically.
+understanding how uncertain the demand estimate is. RetailIntel keeps the
+operational calculation and its holdout evidence distinct but visible in the
+same queue row: a reorder calculation is not proof that a forecast is accurate
+or a purchase order should be placed automatically.
 
 This is a portfolio demonstration using generated operations, not work for a
 real retailer. No revenue gains, stockout reductions or production adoption are
@@ -65,9 +66,9 @@ See [metric semantics](forecast_evaluation.md) for eligibility and availability 
 
 1. Start with the dashboard's stockout/reorder queue. Inspect on-hand/on-order
    quantities, supplier lead-time evidence, safety stock and proposed order quantity.
-2. Find that SKU and category in the JSON's `evaluation` array. Compare both
-   baselines' errors on matching dates and sample counts. Category confidence
-   cannot be substituted for the individual SKU's evidence.
+2. In the same row, compare the policy mean and seasonal-naive holdout MAE/WAPE
+   on matching SKU-days. Use the JSON's `evaluation` array for the exact record.
+   Category evidence cannot be substituted for the individual SKU's evidence.
 3. Treat a large error or underprediction as a reason to investigate, not as
    an automatic instruction to inflate orders. Review promotions, returns,
    supplier variability and whether the observed period represents future demand.
@@ -80,6 +81,8 @@ See [metric semantics](forecast_evaluation.md) for eligibility and availability 
 - Dense SKU/calendar-day history includes zero-demand days; prior-only windows
   avoid using a target to predict itself.
 - Separate fact grains prevent stock and revenue multiplication through joins.
+- The evaluated prior-only mean is the same demand input used by the current
+  replenishment formula; 28-day volatility remains a separate safety-stock input.
 - Comparable baseline populations and pooled category errors are implemented in
   `src/retailintel/sql/marts/forecast_evaluation.sql`, not hand-entered dashboard numbers.
 - Tests cover known errors, undefined WAPE, insufficient history, shared
@@ -88,5 +91,5 @@ See [metric semantics](forecast_evaluation.md) for eligibility and availability 
 - The report carries provenance and limitations, exports JSON nulls faithfully
   and rejects nonstandard NaN/Infinity. No hosted infrastructure is required.
 
-Next product step: surface this uncertainty beside the existing queue, then
-evaluate longer histories and multiple windows before changing any policy.
+Next product step: evaluate longer histories and multiple rolling windows before
+changing any policy, then compare service-level and lead-time scenarios.

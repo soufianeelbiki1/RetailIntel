@@ -51,3 +51,27 @@ Decision use: classify stock as `healthy`, `watch`, `reorder`, or `stockout`, wh
 Grain: supplier.
 
 Decision use: compare actual lead time, on-time delivery rate, late days, and purchase-order volume before making replenishment or supplier decisions.
+
+### `mart_demand_daily`
+Grain: calendar day × SKU, including zero-demand days.
+
+Decision use: provide a prior-only seven-day demand mean and 28-day demand
+standard deviation without letting the current target predict itself.
+
+### `mart_forecast_evaluation`
+Grain: baseline × final-seven-day window × SKU or pooled category.
+
+Decision use: compare the policy's seven-day demand mean with seasonal naive on
+matching observations. MAE is in units per SKU-day; WAPE is null at zero actual
+demand, and signed mean error exposes under- or overprediction.
+
+### `mart_replenishment_recommendation`
+Grain: latest eligible snapshot × SKU.
+
+Decision use: combine the evaluated seven-day demand mean, 28-day volatility,
+contracted lead time and fixed 95% service-level assumption into transparent
+safety-stock, reorder-point, order-quantity and action outputs.
+
+`policy_demand_date` exposes the latest demand date at or before the inventory
+snapshot. Forecast evidence observed after that snapshot is not attached to its
+queue row.

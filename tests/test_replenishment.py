@@ -1,4 +1,10 @@
-from retailintel import build_warehouse
+from dataclasses import replace
+from datetime import timedelta
+from math import ceil, sqrt
+
+import pytest
+
+from retailintel import build_warehouse, generate_retail_dataset
 
 
 def test_demand_spine_includes_zero_demand_days() -> None:
@@ -47,8 +53,15 @@ def test_replenishment_policy_exposes_service_level_assumption() -> None:
     rows = connection.execute(
         """
         select
+            product_id,
+            snapshot_date,
+            policy_demand_date,
+            lead_time_days,
             target_service_level,
             service_level_z,
+            policy_history_days,
+            policy_demand_mean_7d,
+            demand_stddev_28d,
             recommended_safety_stock_qty,
             recommended_reorder_point_qty,
             recommended_reorder_qty,
@@ -59,18 +72,61 @@ def test_replenishment_policy_exposes_service_level_assumption() -> None:
 
     assert rows
     for (
+        product_id,
+        snapshot_date,
+        policy_demand_date,
+        lead_time_days,
         service_level,
         z_score,
+        history_days,
+        policy_mean,
+        demand_stddev,
         safety_stock,
         reorder_point,
         reorder_qty,
         inventory_position,
     ) in rows:
+        latest_prior_only_mean = connection.execute(
+            """
+            select forecast_7d_mean
+            from mart_demand_daily
+            where product_id = ? and metric_date <= ?
+            order by metric_date desc
+            limit 1
+            """,
+            [product_id, snapshot_date],
+        ).fetchone()[0]
+        assert policy_demand_date <= snapshot_date
         assert service_level == 0.95
         assert z_score == 1.645
-        assert safety_stock >= 0
-        assert reorder_point >= safety_stock
+        assert history_days == 7
+        assert policy_mean == pytest.approx(latest_prior_only_mean)
+        assert safety_stock == ceil(z_score * demand_stddev * sqrt(lead_time_days))
+        assert reorder_point == ceil(
+            policy_mean * lead_time_days + z_score * demand_stddev * sqrt(lead_time_days)
+        )
         assert reorder_qty == max(reorder_point - inventory_position, 0)
+
+
+def test_replenishment_policy_never_uses_demand_after_the_inventory_snapshot() -> None:
+    dataset = generate_retail_dataset()
+    latest_snapshot = max(row[0] for row in dataset.inventory_snapshots)
+    cutoff = latest_snapshot - timedelta(days=10)
+    lagged_inventory = replace(
+        dataset,
+        inventory_snapshots=[row for row in dataset.inventory_snapshots if row[0] <= cutoff],
+    )
+    connection = build_warehouse(lagged_inventory)
+    try:
+        rows = connection.execute(
+            "select snapshot_date, policy_demand_date from mart_replenishment_recommendation"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert len(rows) == len(dataset.products)
+    assert all(snapshot == cutoff for snapshot, _ in rows)
+    assert all(demand_date == cutoff for _, demand_date in rows)
 
 
 def test_replenishment_recommendation_covers_every_product() -> None:

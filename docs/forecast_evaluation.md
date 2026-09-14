@@ -8,7 +8,8 @@ comparison inspectable; it does not automatically change replenishment policy.
 
 - Target: net units ordered less returned units at SKU/calendar-day grain.
 - Last seven calendar days of the warehouse form the scored window.
-- Trailing mean: average of the previous seven days, including zero-demand days.
+- Policy trailing mean: the average of the previous seven days, including
+  zero-demand days. This is the demand mean used by the replenishment calculation.
 - Seasonal naive: observed demand exactly seven calendar days earlier.
 - Both methods use exactly the same eligible rows: a complete seven-day history
   and a non-null weekly lag. Short histories produce no score rather than invented accuracy.
@@ -40,6 +41,8 @@ forecasts. Existing tests separately verify prior-only trailing windows.
 
 All input data is synthetic. A single short holdout is not sufficient to select
 a production model, estimate inventory savings or claim service-level results.
+The 28-day standard deviation used for safety stock is a separate policy input;
+these forecast scores do not validate that uncertainty assumption.
 The target uses final recorded returns; delayed real-world returns would require
 point-in-time data availability modelling. Further work should test longer
 histories and multiple rolling windows before recommending a policy change.

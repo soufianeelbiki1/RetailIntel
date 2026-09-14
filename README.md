@@ -25,10 +25,10 @@ The dashboard combines:
 
 - stockout, reorder, watch and healthy action counts;
 - total recommended reorder quantity;
-- SKU-level mean demand and 28-day demand volatility;
+- the policy's prior-only seven-day demand mean and 28-day demand volatility;
 - safety stock and reorder points;
 - supplier contracted/actual lead time and on-time delivery rate;
-- an ordered replenishment queue.
+- an ordered replenishment queue with both baselines' SKU-level holdout evidence;
 - a category forecast comparison with matched scoring dates, sample counts,
   MAE, WAPE and signed error, including undefined/insufficient-history states.
 
@@ -41,7 +41,10 @@ do not establish visual or accessibility correctness.
 
 ## Demand and replenishment
 
-The demand model builds a complete SKU × calendar-day spine, including zero-demand days. Forecasts use a seven-day trailing mean based only on prior observations, and the warehouse also calculates a 28-day demand-volatility estimate.
+The demand model builds a complete SKU × calendar-day spine, including zero-demand days.
+The replenishment policy uses the prior-only seven-day trailing mean that the
+evaluation scores; the warehouse separately calculates a 28-day demand-volatility
+estimate for safety stock.
 
 The current replenishment policy uses a fixed 95% service target (`z = 1.645`) and calculates:
 
@@ -76,9 +79,9 @@ protocol, metrics and limitations alongside the scores. See the
 [business decision walkthrough](docs/DECISION_WALKTHROUGH.md) to reproduce and
 interpret the evidence rather than treating a forecast as an inventory guarantee.
 
-`mart_forecast_evaluation` compares the seven-day trailing mean with a seven-day
-seasonal-naive baseline on the same eligible SKU-days in the final seven calendar
-days. It reports MAE, WAPE, signed mean error, observed demand and evaluated
+`mart_forecast_evaluation` compares the policy's seven-day trailing mean with a
+seven-day seasonal-naive baseline on the same eligible SKU-days in the final seven
+calendar days. It reports MAE, WAPE, signed mean error, observed demand and evaluated
 sample counts by SKU and category. Category errors are pooled across SKU-days;
 WAPE is undefined when observed demand is zero.
 

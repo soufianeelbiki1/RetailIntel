@@ -61,6 +61,13 @@ th { color: #707a89; font-weight: 600; }
 .action-reorder { background: #ffedd5; }
 .action-watch { background: #fef3c7; }
 .action-healthy { background: #dcfce7; }
+.table-scroll { overflow-x: auto; }
+.table-scroll:focus-visible { outline: 3px solid #334155; outline-offset: 3px; }
+.evidence-note { color: #334155; line-height: 1.6; max-width: 900px; }
+.evidence-cell { min-width: 150px; white-space: normal; }
+.evidence-cell strong, .evidence-cell small { display: block; }
+.evidence-cell strong { font-size: .84rem; }
+.evidence-cell small { color: #707a89; line-height: 1.45; margin-top: 3px; }
 @media (max-width: 850px) {
   .cards { grid-template-columns: 1fr 1fr; }
   .grid { grid-template-columns: 1fr; }
@@ -80,6 +87,24 @@ def _bar(label: str, value: int, maximum: int) -> str:
         f"<strong>{value:,}</strong>"
         "</div>"
     )
+
+
+def _forecast_evidence(samples: int | None, mae: float | None, wape: float | None) -> str:
+    if samples is None or mae is None:
+        return '<span class="note">Not scored</span>'
+    wape_text = "WAPE undefined" if wape is None else f"WAPE {float(wape) * 100:.1f}%"
+    return (
+        f"<strong>MAE {float(mae):.2f} units</strong>"
+        f"<small>{wape_text} · {int(samples)} SKU-days</small>"
+    )
+
+
+def _baseline_label(baseline: str) -> str:
+    labels = {
+        "trailing_mean_7d": "Policy 7-day mean",
+        "seasonal_naive_7d": "Seasonal naive",
+    }
+    return escape(labels.get(baseline, baseline))
 
 
 def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
@@ -112,27 +137,59 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
     reorder_rows = connection.execute(
         """
         select
-            product_name,
-            category,
-            supplier_name,
-            on_hand_qty,
-            on_order_qty,
-            mean_demand_28d,
-            demand_stddev_28d,
-            recommended_safety_stock_qty,
-            recommended_reorder_point_qty,
-            recommended_reorder_qty,
-            recommended_action
-        from mart_replenishment_recommendation
+            r.product_name,
+            r.category,
+            r.supplier_name,
+            r.on_hand_qty,
+            r.on_order_qty,
+            r.policy_demand_mean_7d,
+            r.demand_stddev_28d,
+            r.recommended_safety_stock_qty,
+            r.recommended_reorder_point_qty,
+            r.recommended_reorder_qty,
+            r.recommended_action,
+            e.policy_samples,
+            e.policy_mae,
+            e.policy_wape,
+            e.seasonal_samples,
+            e.seasonal_mae,
+            e.seasonal_wape
+        from mart_replenishment_recommendation r
+        left join (
+            select
+                product_id,
+                max(holdout_end) as evidence_end,
+                max(evaluated_sku_days) filter (
+                    where baseline = 'trailing_mean_7d'
+                ) as policy_samples,
+                max(mae_units) filter (
+                    where baseline = 'trailing_mean_7d'
+                ) as policy_mae,
+                max(wape) filter (
+                    where baseline = 'trailing_mean_7d'
+                ) as policy_wape,
+                max(evaluated_sku_days) filter (
+                    where baseline = 'seasonal_naive_7d'
+                ) as seasonal_samples,
+                max(mae_units) filter (
+                    where baseline = 'seasonal_naive_7d'
+                ) as seasonal_mae,
+                max(wape) filter (
+                    where baseline = 'seasonal_naive_7d'
+                ) as seasonal_wape
+            from mart_forecast_evaluation
+            where evaluation_grain = 'sku'
+            group by product_id
+        ) e on e.product_id = r.product_id and e.evidence_end <= r.snapshot_date
         order by
-            case recommended_action
+            case r.recommended_action
                 when 'stockout' then 0
                 when 'reorder' then 1
                 when 'watch' then 2
                 else 3
             end,
-            recommended_reorder_qty desc,
-            product_name
+            r.recommended_reorder_qty desc,
+            r.product_name
         limit 15
         """
     ).fetchall()
@@ -156,7 +213,7 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
     )
     reorder_html = "".join(
         "<tr>"
-        f"<td>{escape(str(product))}</td>"
+        f'<th scope="row">{escape(str(product))}</th>'
         f"<td>{escape(str(category))}</td>"
         f"<td>{escape(str(supplier))}</td>"
         f"<td>{int(on_hand):,}</td>"
@@ -168,6 +225,12 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
         f"<td><strong>{int(reorder_qty):,}</strong></td>"
         f'<td><span class="action action-{escape(str(action))}">'
         f"{escape(str(action))}</span></td>"
+        '<td class="evidence-cell">'
+        f"{_forecast_evidence(policy_samples, policy_mae, policy_wape)}"
+        "</td>"
+        '<td class="evidence-cell">'
+        f"{_forecast_evidence(seasonal_samples, seasonal_mae, seasonal_wape)}"
+        "</td>"
         "</tr>"
         for (
             product,
@@ -181,11 +244,17 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
             reorder_point,
             reorder_qty,
             action,
+            policy_samples,
+            policy_mae,
+            policy_wape,
+            seasonal_samples,
+            seasonal_mae,
+            seasonal_wape,
         ) in reorder_rows
     )
     supplier_html = "".join(
         "<tr>"
-        f"<td>{escape(str(name))}</td>"
+        f'<th scope="row">{escape(str(name))}</th>'
         f"<td>{int(contracted):,}</td>"
         f"<td>{'—' if actual is None else f'{float(actual):.1f}'}</td>"
         f"<td>{'—' if on_time is None else f'{float(on_time) * 100:.1f}%'}</td>"
@@ -193,6 +262,36 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
         f"<td>{int(orders):,}</td>"
         "</tr>"
         for name, contracted, actual, on_time, late, orders in supplier_rows
+    )
+
+    evaluation_rows = connection.execute(
+        "select category, baseline, holdout_start, holdout_end, evaluated_sku_days, "
+        "mae_units, wape, mean_error_units from mart_forecast_evaluation "
+        "where evaluation_grain = 'category' order by category, baseline"
+    ).fetchall()
+    evaluation_html = "".join(
+        "<tr>"
+        f'<th scope="row">{escape(str(category))}</th>'
+        f"<td>{_baseline_label(str(baseline))}</td>"
+        f"<td>{start.isoformat()} – {end.isoformat()}</td>"
+        f"<td>{int(samples):,}</td>"
+        f"<td>{float(mae):.2f}</td>"
+        f"<td>{'Undefined (zero demand)' if wape is None else f'{float(wape) * 100:.2f}%'}</td>"
+        f"<td>{float(bias):+.2f}</td></tr>"
+        for category, baseline, start, end, samples, mae, wape, bias in evaluation_rows
+    )
+    evaluation_content = (
+        '<div class="table-scroll" tabindex="0" role="region" '
+        'aria-label="Forecast comparison, horizontally scrollable">'
+        "<table><caption>Final-seven-day category comparison on matching SKU-days</caption>"
+        '<thead><tr><th scope="col">Category</th><th scope="col">Baseline</th>'
+        '<th scope="col">Scored dates</th><th scope="col">SKU-days</th>'
+        '<th scope="col">MAE units</th><th scope="col">WAPE</th>'
+        '<th scope="col">Mean error units</th></tr></thead>'
+        f"<tbody>{evaluation_html}</tbody></table></div>"
+        if evaluation_rows
+        else "<p>No eligible observations: at least seven prior days are required. "
+        "No accuracy score is inferred.</p>"
     )
 
     return f"""<!doctype html>
@@ -228,23 +327,46 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
   <div class="panel">
     <h2>Supplier reliability</h2>
     <table>
-      <thead><tr><th>Supplier</th><th>Contract days</th><th>Actual days</th>
-      <th>On-time</th><th>Late days</th><th>POs</th></tr></thead>
+      <thead><tr><th scope="col">Supplier</th><th scope="col">Contract days</th>
+      <th scope="col">Actual days</th><th scope="col">On-time</th>
+      <th scope="col">Late days</th><th scope="col">POs</th></tr></thead>
       <tbody>{supplier_html}</tbody>
     </table>
   </div>
 </section>
 <section class="panel full">
   <h2>Replenishment queue</h2>
+  <div class="table-scroll" tabindex="0" role="region"
+    aria-label="Replenishment queue, horizontally scrollable">
   <table>
-    <thead><tr><th>Product</th><th>Category</th><th>Supplier</th><th>On hand</th>
-    <th>On order</th><th>Mean demand</th><th>Volatility</th><th>Safety stock</th>
-    <th>Reorder point</th><th>Order qty</th><th>Action</th></tr></thead>
+    <thead><tr><th scope="col">Product</th><th scope="col">Category</th>
+    <th scope="col">Supplier</th><th scope="col">On hand</th>
+    <th scope="col">On order</th><th scope="col">Policy mean (7d)</th>
+    <th scope="col">Demand SD (28d)</th><th scope="col">Safety stock</th>
+    <th scope="col">Reorder point</th><th scope="col">Order qty</th>
+    <th scope="col">Action</th><th scope="col">Policy holdout evidence</th>
+    <th scope="col">Seasonal comparator</th></tr></thead>
     <tbody>{reorder_html}</tbody>
   </table>
+  </div>
   <p class="note">
     Reorder quantities are planning outputs from the current baseline policy, not proof of
-    globally optimal inventory. Forecasts use prior observations only.
+    globally optimal inventory. The policy uses the same prior-only seven-day mean shown
+    in its holdout evidence; neither baseline is selected automatically.
+  </p>
+</section>
+<section class="panel full" aria-labelledby="forecast-heading">
+  <h2 id="forecast-heading">How uncertain is the demand estimate?</h2>
+  <p class="evidence-note">
+    Synthetic forecast evidence, not achieved inventory savings. Lower error is better;
+    WAPE can exceed 100% and is not an accuracy percentage. Category scores pool SKU-day
+    errors, not aggregated category forecasts. Negative mean error means underprediction.
+  </p>
+  {evaluation_content}
+  <p class="evidence-note">
+    Walk-forward one-day predictions use prior observations; this is not a fixed-origin
+    seven-day forecast. One short synthetic window does not justify selecting a real
+    replenishment policy. Review individual SKU evidence before approving orders.
   </p>
 </section>
 </main>

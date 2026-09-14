@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path
+from importlib.resources import files
+from importlib.resources.abc import Traversable
 
 import duckdb
 
 from retailintel.synthetic import SyntheticRetailDataset, generate_retail_dataset
 
-ROOT = Path(__file__).resolve().parents[2]
-SQL_DIR = ROOT / "sql"
+SQL_DIR = files("retailintel").joinpath("sql")
 
 
-def _execute_script(connection: duckdb.DuckDBPyConnection, path: Path) -> None:
+def _execute_script(connection: duckdb.DuckDBPyConnection, path: Traversable) -> None:
     connection.execute(path.read_text(encoding="utf-8"))
 
 
@@ -20,7 +20,7 @@ def build_warehouse(
 ) -> duckdb.DuckDBPyConnection:
     dataset = dataset or generate_retail_dataset()
     connection = duckdb.connect(database)
-    _execute_script(connection, SQL_DIR / "schema.sql")
+    _execute_script(connection, SQL_DIR.joinpath("schema.sql"))
 
     connection.executemany("insert into dim_supplier values (?, ?, ?)", dataset.suppliers)
     connection.executemany("insert into dim_product values (?, ?, ?, ?, ?, ?)", dataset.products)
@@ -38,12 +38,13 @@ def build_warehouse(
             dataset.purchase_orders,
         )
 
-    _execute_script(connection, SQL_DIR / "marts" / "product_daily.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "inventory_action.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "supplier_reliability.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "customer_rfm.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "customer_cohort.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "promotion_margin.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "demand_daily.sql")
-    _execute_script(connection, SQL_DIR / "marts" / "replenishment_recommendation.sql")
+    _execute_script(connection, SQL_DIR.joinpath("marts", "product_daily.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "inventory_action.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "supplier_reliability.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "customer_rfm.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "customer_cohort.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "promotion_margin.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "demand_daily.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "forecast_evaluation.sql"))
+    _execute_script(connection, SQL_DIR.joinpath("marts", "replenishment_recommendation.sql"))
     return connection

@@ -1,6 +1,10 @@
+import subprocess
+import sys
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+
+import pytest
 
 from retailintel import generate_retail_dataset
 from retailintel.dashboard import build_dashboard_html, write_dashboard
@@ -26,6 +30,10 @@ def test_dashboard_uses_replenishment_and_supplier_marts() -> None:
         connection.close()
 
     assert "SYNTHETIC DATA" in html
+    assert "Evidence provenance" in html
+    assert "Caller-provided DuckDB warehouse" in html
+    assert "Demand history" in html
+    assert "Decision cutoff" in html
     assert str(product) in html
     assert str(supplier) in html
     assert "Replenishment queue" in html
@@ -151,3 +159,33 @@ def test_dashboard_writer_creates_standalone_html(tmp_path: Path) -> None:
     assert content.startswith("<!doctype html>")
     assert "Inventory decisions" in content
     assert "<style>" in content
+    assert "Seed 20,260,831 · 600 generated orders" in content
+    assert "2026-07-01 – 2026-07-30" in content
+    assert "Inventory 2026-07-30 · evaluation 2026-07-30" in content
+
+
+def test_dashboard_custom_inputs_are_visible_and_invalid_cli_preserves_output(
+    tmp_path: Path,
+) -> None:
+    output = write_dashboard(tmp_path / "inventory.html", seed=7, order_count=30)
+    content = output.read_text(encoding="utf-8")
+    assert "Seed 7 · 30 generated orders" in content
+
+    command = [sys.executable, "-m", "retailintel.dashboard", "--output", str(output)]
+    before = output.read_bytes()
+    invalid = subprocess.run(
+        command + ["--order-count", "0"], capture_output=True, text=True, check=False
+    )
+    assert invalid.returncode == 2
+    assert "must be positive" in invalid.stderr
+    assert output.read_bytes() == before
+
+
+def test_dashboard_rejects_provenance_for_a_caller_provided_connection(tmp_path: Path) -> None:
+    connection = build_warehouse()
+    try:
+        with pytest.raises(ValueError, match="caller-provided connection"):
+            write_dashboard(tmp_path / "inventory.html", connection, seed=7, order_count=30)
+    finally:
+        connection.close()
+    assert not (tmp_path / "inventory.html").exists()

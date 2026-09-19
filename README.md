@@ -18,7 +18,10 @@ Current marts include product-day profitability, supplier reliability, customer 
 Generate a standalone browser dashboard from the DuckDB warehouse:
 
 ```bash
-python -m retailintel.dashboard --output build/retailintel-dashboard.html
+python -m retailintel.dashboard \
+  --seed 20260831 \
+  --order-count 600 \
+  --output build/retailintel-dashboard.html
 ```
 
 The dashboard combines:
@@ -31,6 +34,9 @@ The dashboard combines:
 - an ordered replenishment queue with both baselines' SKU-level holdout evidence;
 - a category forecast comparison with matched scoring dates, sample counts,
   MAE, WAPE and signed error, including undefined/insufficient-history states.
+- visible generator inputs, demand-history range, inventory snapshot date and
+  evaluation cutoff so a reviewer can confirm the dashboard and JSON use the
+  same synthetic evidence.
 
 The generated HTML includes its own CSS and requires no dashboard server. All displayed values come from the reproducible synthetic warehouse. Reorder recommendations remain planning outputs under the documented service-level assumptions, not claims of optimal inventory.
 
@@ -71,13 +77,20 @@ Promotion analysis is descriptive. The data does not support a causal lift claim
 Export a self-describing JSON report without a database server or model API:
 
 ```bash
-python -m retailintel.evaluation --output build/forecast-evaluation.json
+python -m retailintel.evaluation \
+  --seed 20260831 \
+  --order-count 600 \
+  --output build/forecast-evaluation.json
 ```
 
 The report records the synthetic seed, input size, DuckDB version, scoring
 protocol, metrics and limitations alongside the scores. See the
 [business decision walkthrough](docs/DECISION_WALKTHROUGH.md) to reproduce and
 interpret the evidence rather than treating a forecast as an inventory guarantee.
+Both artifact commands accept the same `--seed` and `--order-count` options.
+Use identical values when comparing the dashboard with the JSON report; the
+dashboard prints those inputs and its decision/evaluation cutoffs instead of
+silently implying that two different samples are comparable.
 
 `mart_forecast_evaluation` compares the policy's seven-day trailing mean with a
 seven-day seasonal-naive baseline on the same eligible SKU-days in the final seven

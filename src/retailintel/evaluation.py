@@ -8,11 +8,18 @@ from pathlib import Path
 
 import duckdb
 
-from retailintel.synthetic import generate_retail_dataset
+from retailintel.synthetic import (
+    DEFAULT_SYNTHETIC_ORDER_COUNT,
+    DEFAULT_SYNTHETIC_SEED,
+    generate_retail_dataset,
+)
 from retailintel.warehouse import build_warehouse
 
 
-def build_evaluation_report(seed: int = 20260831, order_count: int = 600) -> dict:
+def build_evaluation_report(
+    seed: int = DEFAULT_SYNTHETIC_SEED,
+    order_count: int = DEFAULT_SYNTHETIC_ORDER_COUNT,
+) -> dict:
     dataset = generate_retail_dataset(seed=seed, order_count=order_count)
     connection = build_warehouse(dataset)
     try:
@@ -74,7 +81,11 @@ def build_evaluation_report(seed: int = 20260831, order_count: int = 600) -> dic
         connection.close()
 
 
-def write_evaluation(path: str | Path, seed: int = 20260831, order_count: int = 600) -> Path:
+def write_evaluation(
+    path: str | Path,
+    seed: int = DEFAULT_SYNTHETIC_SEED,
+    order_count: int = DEFAULT_SYNTHETIC_ORDER_COUNT,
+) -> Path:
     # Generate/validate before creating the output; no NaN/Infinity JSON values.
     content = (
         json.dumps(build_evaluation_report(seed, order_count), indent=2, allow_nan=False) + "\n"
@@ -88,8 +99,8 @@ def write_evaluation(path: str | Path, seed: int = 20260831, order_count: int = 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", default="build/forecast-evaluation.json")
-    parser.add_argument("--seed", type=int, default=20260831)
-    parser.add_argument("--order-count", type=int, default=600)
+    parser.add_argument("--seed", type=int, default=DEFAULT_SYNTHETIC_SEED)
+    parser.add_argument("--order-count", type=int, default=DEFAULT_SYNTHETIC_ORDER_COUNT)
     args = parser.parse_args()
     if args.order_count <= 0:
         parser.error("--order-count must be positive")

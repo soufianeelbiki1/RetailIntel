@@ -23,8 +23,10 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
 python -m pytest -q
-python -m retailintel.evaluation --output build/forecast-evaluation.json
-python -m retailintel.dashboard --output build/retailintel-dashboard.html
+python -m retailintel.evaluation --seed 20260831 --order-count 600 \
+  --output build/forecast-evaluation.json
+python -m retailintel.dashboard --seed 20260831 --order-count 600 \
+  --output build/retailintel-dashboard.html
 ```
 
 On Windows activate with `.venv\Scripts\Activate.ps1`. The SQL scripts ship as
@@ -32,8 +34,10 @@ package resources, so an installed wheel can run outside the repository too.
 Open the generated HTML locally. Both default commands use seed `20260831`,
 600 orders and 20 products. The JSON records the DuckDB version and scoring
 protocol; file generation does not publish anything or change replenishment policy.
-If using evaluation's optional `--seed` / `--order-count`, the existing dashboard
-CLI still uses the default sample: do not compare different generated inputs.
+Both commands accept `--seed` and `--order-count`. Use the same values for both
+artifacts. The dashboard displays those inputs, its demand-history range, the
+inventory snapshot date and the evaluation cutoff so mismatched evidence is
+visible during review.
 
 ## Inspect the evidence
 
@@ -90,6 +94,9 @@ See [metric semantics](forecast_evaluation.md) for eligibility and availability 
   suite on two Python versions.
 - The report carries provenance and limitations, exports JSON nulls faithfully
   and rejects nonstandard NaN/Infinity. No hosted infrastructure is required.
+- The dashboard exposes the generator inputs and point-in-time cutoffs used by
+  its queue and forecast tables; it rejects invalid counts without overwriting
+  an existing artifact.
 
 Next product step: evaluate longer histories and multiple rolling windows before
 changing any policy, then compare service-level and lead-time scenarios.

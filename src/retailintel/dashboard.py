@@ -6,6 +6,11 @@ from pathlib import Path
 
 import duckdb
 
+from retailintel.synthetic import (
+    DEFAULT_SYNTHETIC_ORDER_COUNT,
+    DEFAULT_SYNTHETIC_SEED,
+    generate_retail_dataset,
+)
 from retailintel.warehouse import build_warehouse
 
 STYLES = """
@@ -36,6 +41,27 @@ h2 { font-size: 1.1rem; margin: 0 0 16px; }
 .card { padding: 18px; }
 .card span { color: #707a89; font-size: .8rem; text-transform: uppercase; }
 .card strong { display: block; margin-top: 8px; font-size: 1.65rem; }
+.provenance {
+  margin: 24px 0;
+  padding: 18px 0;
+  border-top: 1px solid #dfe4ea;
+  border-bottom: 1px solid #dfe4ea;
+}
+.provenance h2 { margin-bottom: 12px; }
+.provenance dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+.provenance dl div { min-width: 0; }
+.provenance dt {
+  color: #707a89;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.provenance dd { margin: 5px 0 0; font-size: .9rem; overflow-wrap: anywhere; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .panel { padding: 20px; overflow: auto; }
 .full { margin-top: 18px; }
@@ -70,9 +96,12 @@ th { color: #707a89; font-weight: 600; }
 .evidence-cell small { color: #707a89; line-height: 1.45; margin-top: 3px; }
 @media (max-width: 850px) {
   .cards { grid-template-columns: 1fr 1fr; }
+  .provenance dl { grid-template-columns: 1fr 1fr; }
   .grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 520px) { .cards { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .cards, .provenance dl { grid-template-columns: 1fr; }
+}
 """
 
 
@@ -107,7 +136,30 @@ def _baseline_label(baseline: str) -> str:
     return escape(labels.get(baseline, baseline))
 
 
-def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
+def build_dashboard_html(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    seed: int | None = None,
+    order_count: int | None = None,
+) -> str:
+    history_start, history_end = connection.execute(
+        "select min(metric_date), max(metric_date) from mart_demand_daily"
+    ).fetchone()
+    snapshot_date = connection.execute(
+        "select max(snapshot_date) from mart_replenishment_recommendation"
+    ).fetchone()[0]
+    evidence_end = connection.execute(
+        "select max(holdout_end) from mart_forecast_evaluation"
+    ).fetchone()[0]
+
+    if seed is None or order_count is None:
+        generator_value = "Caller-provided DuckDB warehouse"
+    else:
+        generator_value = f"Seed {seed:,} · {order_count:,} generated orders"
+    history_range = f"{history_start.isoformat()} – {history_end.isoformat()}"
+    evaluation_cutoff = "not scored" if evidence_end is None else evidence_end.isoformat()
+    decision_cutoff = f"Inventory {snapshot_date.isoformat()} · evaluation {evaluation_cutoff}"
+
     total_products, urgent_products, total_reorder_qty = connection.execute(
         """
         select
@@ -312,6 +364,15 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
     RetailIntel marts. Recommendations use the documented 95% service-level assumption.
   </p>
 </header>
+<section class="provenance" aria-labelledby="provenance-heading">
+  <h2 id="provenance-heading">Evidence provenance</h2>
+  <dl>
+    <div><dt>Source</dt><dd>Synthetic operations</dd></div>
+    <div><dt>Generator input</dt><dd>{generator_value}</dd></div>
+    <div><dt>Demand history</dt><dd>{history_range}</dd></div>
+    <div><dt>Decision cutoff</dt><dd>{decision_cutoff}</dd></div>
+  </dl>
+</section>
 <section class="cards">
   <div class="card"><span>Products</span><strong>{int(total_products):,}</strong></div>
   <div class="card"><span>Stockout / reorder</span><strong>{int(urgent_products):,}</strong></div>
@@ -377,24 +438,49 @@ def build_dashboard_html(connection: duckdb.DuckDBPyConnection) -> str:
 def write_dashboard(
     path: str | Path,
     connection: duckdb.DuckDBPyConnection | None = None,
+    *,
+    seed: int | None = None,
+    order_count: int | None = None,
 ) -> Path:
     output = Path(path)
-    output.parent.mkdir(parents=True, exist_ok=True)
     owns_connection = connection is None
-    conn = connection or build_warehouse()
+    if owns_connection:
+        resolved_seed = DEFAULT_SYNTHETIC_SEED if seed is None else seed
+        resolved_order_count = DEFAULT_SYNTHETIC_ORDER_COUNT if order_count is None else order_count
+        dataset = generate_retail_dataset(
+            seed=resolved_seed,
+            order_count=resolved_order_count,
+        )
+        conn = build_warehouse(dataset)
+    else:
+        if seed is not None or order_count is not None:
+            raise ValueError("seed and order_count cannot describe a caller-provided connection")
+        resolved_seed = None
+        resolved_order_count = None
+        conn = connection
     try:
-        output.write_text(build_dashboard_html(conn), encoding="utf-8")
+        content = build_dashboard_html(
+            conn,
+            seed=resolved_seed,
+            order_count=resolved_order_count,
+        )
     finally:
         if owns_connection:
             conn.close()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(content, encoding="utf-8")
     return output
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate the RetailIntel inventory dashboard")
     parser.add_argument("--output", default="build/retailintel-dashboard.html")
+    parser.add_argument("--seed", type=int, default=DEFAULT_SYNTHETIC_SEED)
+    parser.add_argument("--order-count", type=int, default=DEFAULT_SYNTHETIC_ORDER_COUNT)
     args = parser.parse_args()
-    print(write_dashboard(args.output))
+    if args.order_count <= 0:
+        parser.error("--order-count must be positive")
+    print(write_dashboard(args.output, seed=args.seed, order_count=args.order_count))
 
 
 if __name__ == "__main__":

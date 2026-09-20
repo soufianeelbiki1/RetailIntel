@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from random import Random
 
+DEFAULT_SYNTHETIC_SEED = 20260831
+DEFAULT_SYNTHETIC_ORDER_COUNT = 600
+
 
 @dataclass(frozen=True)
 class SyntheticRetailDataset:
@@ -15,7 +18,10 @@ class SyntheticRetailDataset:
     purchase_orders: list[tuple[str, str, str, date, date, date | None, int]]
 
 
-def generate_retail_dataset(seed: int = 20260831, order_count: int = 600) -> SyntheticRetailDataset:
+def generate_retail_dataset(
+    seed: int = DEFAULT_SYNTHETIC_SEED,
+    order_count: int = DEFAULT_SYNTHETIC_ORDER_COUNT,
+) -> SyntheticRetailDataset:
     """Generate deterministic synthetic retail operations with no real customer data."""
 
     if order_count <= 0:

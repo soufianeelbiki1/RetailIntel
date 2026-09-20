@@ -49,8 +49,11 @@ def test_dashboard_uses_replenishment_and_supplier_marts() -> None:
     assert "MAE " in html
     assert "SKU-days" in html
     assert "WAPE can exceed 100%" in html
-    assert 'tabindex="0" role="region"' in html
+    assert html.count('tabindex="0" role="region"') == 3
+    assert 'aria-label="Supplier reliability, horizontally scrollable"' in html
     assert 'aria-label="Replenishment queue, horizontally scrollable"' in html
+    assert "#707a89" not in html
+    assert "#596273" in html
     assert 'scope="col"' in html
     assert html.count('class="evidence-cell"') == 30
 

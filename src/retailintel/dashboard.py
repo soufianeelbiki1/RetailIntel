@@ -25,7 +25,7 @@ main { max-width: 1220px; margin: auto; padding: 40px 24px 64px; }
 h1 { font-size: clamp(2rem, 6vw, 4rem); margin: 5px 0 8px; }
 h2 { font-size: 1.1rem; margin: 0 0 16px; }
 .sub { color: #626d7d; max-width: 780px; line-height: 1.6; }
-.note { color: #707a89; font-size: .82rem; }
+.note { color: #596273; font-size: .82rem; }
 .cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -39,7 +39,7 @@ h2 { font-size: 1.1rem; margin: 0 0 16px; }
   box-shadow: 0 8px 24px rgba(20, 30, 50, .05);
 }
 .card { padding: 18px; }
-.card span { color: #707a89; font-size: .8rem; text-transform: uppercase; }
+.card span { color: #596273; font-size: .8rem; text-transform: uppercase; }
 .card strong { display: block; margin-top: 8px; font-size: 1.65rem; }
 .provenance {
   margin: 24px 0;
@@ -56,14 +56,14 @@ h2 { font-size: 1.1rem; margin: 0 0 16px; }
 }
 .provenance dl div { min-width: 0; }
 .provenance dt {
-  color: #707a89;
+  color: #596273;
   font-size: .72rem;
   text-transform: uppercase;
   letter-spacing: .04em;
 }
 .provenance dd { margin: 5px 0 0; font-size: .9rem; overflow-wrap: anywhere; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.panel { padding: 20px; overflow: auto; }
+.panel { min-width: 0; padding: 20px; }
 .full { margin-top: 18px; }
 table { width: 100%; border-collapse: collapse; font-size: .88rem; }
 th, td {
@@ -72,7 +72,7 @@ th, td {
   border-bottom: 1px solid #edf0f3;
   white-space: nowrap;
 }
-th { color: #707a89; font-weight: 600; }
+th { color: #596273; font-weight: 600; }
 .bar-row {
   display: grid;
   grid-template-columns: 100px 1fr 50px;
@@ -93,7 +93,7 @@ th { color: #707a89; font-weight: 600; }
 .evidence-cell { min-width: 150px; white-space: normal; }
 .evidence-cell strong, .evidence-cell small { display: block; }
 .evidence-cell strong { font-size: .84rem; }
-.evidence-cell small { color: #707a89; line-height: 1.45; margin-top: 3px; }
+.evidence-cell small { color: #596273; line-height: 1.45; margin-top: 3px; }
 @media (max-width: 850px) {
   .cards { grid-template-columns: 1fr 1fr; }
   .provenance dl { grid-template-columns: 1fr 1fr; }
@@ -387,12 +387,15 @@ def build_dashboard_html(
   <div class="panel"><h2>Inventory action mix</h2>{actions_html}</div>
   <div class="panel">
     <h2>Supplier reliability</h2>
+    <div class="table-scroll" tabindex="0" role="region"
+      aria-label="Supplier reliability, horizontally scrollable">
     <table>
       <thead><tr><th scope="col">Supplier</th><th scope="col">Contract days</th>
       <th scope="col">Actual days</th><th scope="col">On-time</th>
       <th scope="col">Late days</th><th scope="col">POs</th></tr></thead>
       <tbody>{supplier_html}</tbody>
     </table>
+    </div>
   </div>
 </section>
 <section class="panel full">
